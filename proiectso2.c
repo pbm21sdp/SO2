@@ -16,6 +16,10 @@ char separator_stanga = 195;  // ├
 char separator_central = 197;  // ┼
 char separator_dreapta = 180;  // ┤
 
+// tabla initial goala de 3x3 sub forma de matrice pentru a putea plasa X sau 0 
+
+char tabla[3][3] = { {' ', ' ', ' '}, {' ', ' ', ' '}, {' ', ' ', ' '} };
+
 void print_orizontala() // functie care va printa o linie orizontala corespunzatoare unei singure casute din patrat
 {
     printf("%c%c%c%c%c", orizontala, orizontala, orizontala, orizontala, orizontala);
@@ -54,24 +58,52 @@ void print_linie_jos() // functie care printeaza latura de jos a patratului cu c
     printf("%c\n", colt_dreapta_jos);
 }
 
-void print_celule() // functie care printeaza laturile verticale ale patratului la distanta de o "casuta"
+void print_celule(int rand) // functie care printeaza laturile verticale ale patratului la distanta de o "casuta" si primeste ca parametru un intreg reprezentand numarul randului din tabla
 {
-    printf("%c     %c     %c     %c\n", verticala, verticala, verticala, verticala);
+    printf("%c  %c  %c  %c  %c  %c  %c\n", verticala, tabla[rand][0], verticala, tabla[rand][1], verticala, tabla[rand][2], verticala);
 }
 
 void print_tabla() 
 {
     print_linie_sus();   
-    print_celule();      
+    print_celule(0);      
     print_linie_mijloc(); 
-    print_celule();      
+    print_celule(1);      
     print_linie_mijloc(); 
-    print_celule();      
+    print_celule(2);      
     print_linie_jos(); 
+}
+
+void scrie_X_sau_0(int rand, int coloana, char caracter)
+{
+    if((caracter != 'X') && (caracter != 'x') && (caracter != '0'))
+    {
+        printf("S-a introdus un caracter invalid.\n");
+    }
+    else
+    {
+        if((rand < 0) || (rand > 2) || (coloana < 0) || (coloana > 2))
+        {
+            printf("S-a introdus o pozitie invalida.\n");
+        }
+        else
+        {
+            tabla[rand][coloana] = caracter;
+        }
+    }
 }
 
 int main(int argc, char* argv[]) 
 {
     print_tabla();
+
+    scrie_X_sau_0(0, 0, 'X');
+    scrie_X_sau_0(0, 1, '0');
+    scrie_X_sau_0(0, 2, 'X');
+    scrie_X_sau_0(1, 0, '0');
+    scrie_X_sau_0(1, 1, 'X');
+    scrie_X_sau_0(2, 1, '0');
+    print_tabla();
     return 0;
 }
+
