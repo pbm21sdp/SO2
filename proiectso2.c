@@ -110,6 +110,19 @@ int verificare_castig()
     return 0;
 }
 
+void reseteaza_tabla()
+{
+    int i;
+    int j;
+
+    for(i = 0; i < 3; i++)
+    {
+        for(j = 0; j < 3; j++)
+        {
+            tabla[i][j] = ' ';
+        }
+    }
+}
 
 void scrie_X_sau_0() 
 {
@@ -117,67 +130,89 @@ void scrie_X_sau_0()
     char caracter;
     int rand, coloana;
     int mutari; 
+    char optiune[3];
 
-    printf("Alege X sau 0: ");
-    scanf(" %c", &caracter);
-
-    if(caracter == '0') 
+    while(1)
     {
-        flag = 1;
-    } 
-    else if(caracter == 'X' || caracter == 'x') 
-    {
-        flag = 0;
-    } 
-    else
-    {
-        printf("S-a introdus un caracter invalid. Acum sunteti X.\n");
-        caracter = 'X';
-        flag = 0;
-    }
-
-    for(mutari = 0; mutari < 9; mutari++) 
-    { 
-        printf("Introdu pozitia pentru %c (rand coloana): ", caracter);
-        scanf("%d %d", &rand, &coloana);
-
-        if(rand < 0 || rand > 2 || coloana < 0 || coloana > 2) 
+        while (1) 
         {
-            printf("S-a introdus o pozitie invalida. Incearca din nou.\n");
-            mutari--; 
-            continue;
+            printf("Alege X sau 0: ");
+            scanf(" %c", &caracter);
+
+            if(caracter == '0') 
+            {
+                flag = 1;
+                break;
+            } 
+            else if (caracter == 'X' || caracter == 'x') 
+            {
+                flag = 0;
+                break;
+            } 
+            else 
+            {
+                printf("S-a introdus un caracter invalid. Incearca din nou.\n");
+            }
         }
 
-        if(tabla[rand][coloana] != ' ') 
-        {
-            printf("Pozitia este deja ocupata. Incearca din nou.\n");
-            mutari--; 
-            continue;
+        for(mutari = 0; mutari < 9; mutari++) 
+        { 
+            printf("Introdu pozitia pentru %c (rand coloana): ", caracter);
+            scanf("%d %d", &rand, &coloana);
+
+            if(rand < 0 || rand > 2 || coloana < 0 || coloana > 2) 
+            {
+                printf("S-a introdus o pozitie invalida. Incearca din nou.\n");
+                mutari--; 
+                continue;
+            }
+
+            if(tabla[rand][coloana] != ' ') 
+            {
+                printf("Pozitia este deja ocupata. Incearca din nou.\n");
+                mutari--; 
+                continue;
+            }
+
+            tabla[rand][coloana] = caracter;
+
+            print_tabla();
+
+            if(verificare_castig()) 
+            {
+                printf("Winner winner chicken dinner: %c\n", caracter);
+                break;
+            }
+
+            if(flag == 0)
+            {
+                caracter = '0';
+            }
+            else
+            {
+                caracter = 'X';
+            }
+
+            flag = 1 - flag; 
         }
 
-        tabla[rand][coloana] = caracter;
+        if(verificare_castig() == 0)
+        {
+            printf("Remiza.\n");
+        }
+
+        reseteaza_tabla();
+        printf("Jucati din nou? Introduceti Da sau Nu.\n");
+        scanf(" %s", &optiune);
+
+        if(strcmp(optiune, "Da") != 0)
+        {
+            printf("Bye.\n");
+            break;
+        }
 
         print_tabla();
-
-        if(verificare_castig()) 
-        {
-            printf("Winner winner chicken dinner: %c\n", caracter);
-            return;
-        }
-
-        if(flag == 0)
-        {
-            caracter = '0';
-        }
-        else
-        {
-            caracter = 'X';
-        }
-
-        flag = 1 - flag; 
     }
-
-    printf("Remiza.\n");
 }
 
 
@@ -185,13 +220,7 @@ int main(int argc, char* argv[])
 {
     print_tabla();
 
-    scrie_X_sau_0(0, 0, 'X');
-    scrie_X_sau_0(0, 1, '0');
-    scrie_X_sau_0(0, 2, 'X');
-    scrie_X_sau_0(1, 0, '0');
-    scrie_X_sau_0(1, 1, 'X');
-    scrie_X_sau_0(2, 1, '0');
-    print_tabla();
+    scrie_X_sau_0();
     return 0;
 }
 
