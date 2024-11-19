@@ -111,26 +111,75 @@ int verificare_castig()
 }
 
 
-void scrie_X_sau_0(int rand, int coloana, char caracter)
+void scrie_X_sau_0() 
 {
-    int flag = 0;
+    int flag = 0; // 0 pentru X, 1 pentru 0
+    char caracter;
+    int rand, coloana;
+    int mutari; 
 
-    if((caracter != 'X') && (caracter != 'x') && (caracter != '0'))
+    printf("Alege X sau 0: ");
+    scanf(" %c", &caracter);
+
+    if(caracter == '0') 
     {
-        printf("S-a introdus un caracter invalid.\n");
-    }
+        flag = 1;
+    } 
+    else if(caracter == 'X' || caracter == 'x') 
+    {
+        flag = 0;
+    } 
     else
     {
-        if((rand < 0) || (rand > 2) || (coloana < 0) || (coloana > 2))
+        printf("S-a introdus un caracter invalid. Acum sunteti X.\n");
+        caracter = 'X';
+        flag = 0;
+    }
+
+    for(mutari = 0; mutari < 9; mutari++) 
+    { 
+        printf("Introdu pozitia pentru %c (rand coloana): ", caracter);
+        scanf("%d %d", &rand, &coloana);
+
+        if(rand < 0 || rand > 2 || coloana < 0 || coloana > 2) 
         {
-            printf("S-a introdus o pozitie invalida.\n");
+            printf("S-a introdus o pozitie invalida. Incearca din nou.\n");
+            mutari--; 
+            continue;
+        }
+
+        if(tabla[rand][coloana] != ' ') 
+        {
+            printf("Pozitia este deja ocupata. Incearca din nou.\n");
+            mutari--; 
+            continue;
+        }
+
+        tabla[rand][coloana] = caracter;
+
+        print_tabla();
+
+        if(verificare_castig()) 
+        {
+            printf("Winner winner chicken dinner: %c\n", caracter);
+            return;
+        }
+
+        if(flag == 0)
+        {
+            caracter = '0';
         }
         else
         {
-            tabla[rand][coloana] = caracter;
+            caracter = 'X';
         }
+
+        flag = 1 - flag; 
     }
+
+    printf("Remiza.\n");
 }
+
 
 int main(int argc, char* argv[]) 
 {
