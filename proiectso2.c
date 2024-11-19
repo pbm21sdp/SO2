@@ -74,8 +74,47 @@ void print_tabla()
     print_linie_jos(); 
 }
 
+int verificare_castig() 
+{
+    int i;
+    int j;
+
+    // verificare linii
+    for(i = 0; i < 3; i++) 
+    {
+        if((tabla[i][0] != ' ') && (tabla[i][0] == tabla[i][1]) && (tabla[i][1] == tabla[i][2]))
+        {
+            return 1;
+        }
+    }
+
+    // verificare coloane
+    for(j = 0; j < 3; j++) 
+    {
+        if((tabla[0][j] != ' ') && (tabla[0][j] == tabla[1][j]) && (tabla[1][j] == tabla[2][j]))
+        {
+            return 1;
+        }
+    }
+
+    // verificare diagonale
+    if((tabla[0][0] != ' ') && (tabla[0][0] == tabla[1][1]) && (tabla[1][1] == tabla[2][2]))
+    {
+        return 1;
+    }
+    if((tabla[0][2] != ' ') && (tabla[0][2] == tabla[1][1]) && (tabla[1][1] == tabla[2][0]))
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
+
 void scrie_X_sau_0(int rand, int coloana, char caracter)
 {
+    int flag = 0;
+
     if((caracter != 'X') && (caracter != 'x') && (caracter != '0'))
     {
         printf("S-a introdus un caracter invalid.\n");
