@@ -131,29 +131,43 @@ void scrie_X_sau_0()
     int rand, coloana;
     int mutari; 
     char optiune[3];
+    char player1[100], player2[100];
+    char simbol1, simbol2;
+
+    printf("Player 1, ce username ai vrea sa ai? ");
+    scanf("%s", player1);
+    printf("Player 1 are username-ul: %s", player1);
 
     while(1)
     {
         while (1) 
         {
-            printf("Alege X sau 0: ");
-            scanf(" %c", &caracter);
+            printf("%s, alege simbolul cu care ai vrea sa joci (X sau 0): ", player1);
+            scanf(" %c", &simbol1);
 
-            if(caracter == '0') 
+            if((simbol1 == 'X') || (simbol1 == 'x')) 
             {
-                flag = 1;
+                simbol1 = 'X';
+                simbol2 = '0';
                 break;
             } 
-            else if (caracter == 'X' || caracter == 'x') 
+            else if(simbol1 == '0') 
             {
-                flag = 0;
+                simbol2 = 'X';
                 break;
             } 
             else 
             {
-                printf("S-a introdus un caracter invalid. Incearca din nou.\n");
+                printf("%s, ai introdus un simbol invalid. Incearca din nou.\n", player1);
             }
         }
+
+        printf("Player 2, ce username ai vrea sa ai? ");
+        scanf("%s", player2);
+        printf("Player 2 are username-ul: %s", player2);
+
+        printf("%s va juca %c.\n", player1, simbol1);
+        printf("%s va juca %c.\n", player2, simbol2);
 
         for(mutari = 0; mutari < 9; mutari++) 
         { 
