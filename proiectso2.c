@@ -4,7 +4,7 @@
 #include<string.h>
 #include<ctype.h>
 
-// definim caracterele din tabela extinsa ASCII de care vom avea nevoie pentru a desena patratul
+// definim caracterele din tabela extinsa ASCII de care vom avea nevoie pentru a desena patratul ///
 char colt_stanga_sus = 218;    // ┐
 char colt_dreapta_sus = 191;   // ┒
 char colt_stanga_jos = 192;    // └
