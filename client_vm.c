@@ -103,12 +103,21 @@ int coordonate_la_indici(char *coordonate, int *rand, int *coloana)
     return 1; // coordonate invalide
 }
 
+void update_tabla(char *str){
+
+    for(int i = 0; i < 3; i++){
+        for(int j = 0; j < 3; j++){
+            tabla[i][j] = str[i + j];
+        }
+    }
+}
+
 int main()
 {
     int sock;
     struct sockaddr_in server;
-    char buffer[1024];
-    char coordonate[3];
+    char buffer[128];
+    char coordonate[3] = {0};
     char nume[50];
 
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
@@ -136,6 +145,64 @@ int main()
     printf("Introduceti numele de utilizator: ");
     scanf("%s", nume);
     send(sock, nume, strlen(nume), 0);
+
+    print_tabla();
+
+    while (1) {
+        // Receive game state or instructions
+        memset(buffer, 0, sizeof(buffer));
+        int valread = recv(sock, buffer, sizeof(buffer), 0);
+        if (valread <= 0) {
+            printf("Connection closed by server.\n");
+            break;
+        }
+
+        // End Game
+        if (strcmp(buffer, "Joc terminat! Ai castigat!\n") == 0) {
+            printf("\n%s\n", buffer);
+            break;
+        }
+
+        if (strcmp(buffer, "Joc terminat! Ai pierdut!\n") == 0) {
+            printf("\n%s\n", buffer);
+            break;
+        }
+
+        if (strcmp(buffer, "Turnul tau! Introdu miscarea (format: A1, B2, etc.): ") == 0) {
+
+            printf("\n%s\n", buffer);
+
+            while(1){
+                // Send the move
+                scanf("%s", coordonate);
+                coordonate[2] = 0;
+                printf("%s\n", coordonate);
+                send(sock, coordonate, strlen(coordonate), 0);
+
+                memset(buffer,0, sizeof(buffer));
+                valread = recv(sock, buffer, sizeof(buffer), 0);
+                if (valread <= 0) {
+                    printf("Connection closed by server.\n");
+                    close(sock);
+                    return 1;
+                }
+
+                if (strcmp(buffer, "Miscare invalida. Incearca din nou.\n") == 0){
+                    printf("Miscare invalida. Introdu miscarea (format: A1, B2, etc.): ");
+                }
+                else{
+                    break;
+                }
+            }
+            
+        }
+
+        if(strlen(buffer) == 9){
+            update_tabla(buffer);
+            print_tabla();
+        }
+
+    }
 
     close(sock);
     return 0;
