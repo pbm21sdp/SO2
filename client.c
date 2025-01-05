@@ -77,27 +77,34 @@ void print_tabla()
     print_linie_jos();
 }
 
-void update_tabla(char *buffer) {
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 3; j++) {
-            if (buffer[i * 3 + j] == '0') tabla[i][j] = ' ';
-            else if (buffer[i * 3 + j] == '1') tabla[i][j] = 'X';
-            else if (buffer[i * 3 + j] == '2') tabla[i][j] = 'O';
+void update_tabla(char *buffer)
+{
+    for (int i = 0; i < 3; i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            if (buffer[i * 3 + j] == '0')
+                tabla[i][j] = ' ';
+            else if (buffer[i * 3 + j] == '1')
+                tabla[i][j] = 'X';
+            else if (buffer[i * 3 + j] == '2')
+                tabla[i][j] = 'O';
         }
     }
 }
 
-
-
-void play_game(int sock) {
+void play_game(int sock)
+{
     char buffer[1024] = {0};
     char move[10];
 
-    while (1) {
+    while (1)
+    {
         memset(buffer, 0, sizeof(buffer));
 
         int valread = recv(sock, buffer, 9, 0);
-        if (valread <= 0) {
+        if (valread <= 0)
+        {
             printf("Connection closed by server.\n");
             break;
         }
@@ -107,38 +114,41 @@ void play_game(int sock) {
 
         memset(buffer, 0, sizeof(buffer));
         valread = recv(sock, buffer, sizeof(buffer), 0);
-        if (valread <= 0) {
+        if (valread <= 0)
+        {
             printf("Connection closed by server.\n");
             break;
         }
         printf("%s", buffer);
 
-
         // printf("\nDEBUG\n");
         // printf("%s", buffer);
         // printf("%ld - len\n", strlen(buffer));
         // printf("\nDEBUG\n");
-    
 
         // Check if the game has ended
-        if (strstr(buffer, "win") || strstr(buffer, "draw") || strstr(buffer, "lose")) {
+        if (strstr(buffer, "win") || strstr(buffer, "draw") || strstr(buffer, "lose"))
+        {
             break;
         }
 
         // Only prompt for input if it is this player's turn
-        if (strstr(buffer, "Your move")) {
-            printf("Enter your move (row col): ");
+        if (strstr(buffer, "Your move"))
+        {
+            printf("Enter your move (A1, B2, etc.): ");
             fgets(move, sizeof(move), stdin);
             send(sock, move, strlen(move), 0);
         }
     }
 }
 
-int main() {
+int main()
+{
     int sock = 0;
     struct sockaddr_in serv_addr;
 
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    {
         printf("Socket creation error\n");
         return -1;
     }
@@ -146,12 +156,14 @@ int main() {
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(PORT);
 
-    if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
+    if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0)
+    {
         printf("Invalid address/ Address not supported\n");
         return -1;
     }
 
-    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
+    {
         printf("Connection Failed\n");
         return -1;
     }

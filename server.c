@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <ctype.h>
 
 #define PORT 8080
 #define MAX_CLIENTS 100
@@ -68,6 +69,29 @@ int is_draw(char board[BOARD_SIZE][BOARD_SIZE]) {
     return 1;
 }
 
+int valid_move(Game *game ,char *coordinates, int *row, int *col){
+    if (strlen(coordinates) != 2)
+        return 0;
+
+    char letter = toupper(coordinates[0]);
+    char digit = coordinates[1];
+
+    if (letter < 'A' || letter > 'C' || digit < '1' || digit > '3')
+    {
+        return 0;
+    }
+
+    *row = digit - '1';
+    *col = letter - 'A';
+
+    if (game->board[*row][*col] != ' ')
+        return 0;
+
+    return 1;
+}
+
+
+
 void *game_thread(void *arg) {
     int game_index = *(int *)arg;
     free(arg);
@@ -75,37 +99,63 @@ void *game_thread(void *arg) {
     Game *game = &games[game_index];
     char buffer[1024];
     char game_str[10];
-    char move[10];
+    char move[3];
     int row, col;
+
+    int bad_move = 0;
 
     init_board(game->board);
 
     while (1) {
         int player_fd = (game->current_turn == 1) ? game->player1 : game->player2;
         int opponent_fd = (game->current_turn == 1) ? game->player2 : game->player1;
+        
+        
+        if (bad_move){
+            memset(buffer, 0, sizeof(buffer));
 
-        memset(game_str, 0, sizeof(game_str));
-        print_board(game->board, game_str);
-        send(player_fd, game_str, strlen(game_str), 0);
+            sprintf(buffer, "\n Illegal move. Try Again\n");
+            strcat(buffer, "\nYour move (A1, B2, etc.): ");
 
-        sprintf(buffer, "\nYour move (row col): ");
-        send(player_fd, buffer, strlen(buffer), 0);
+            send(player_fd, buffer, strlen(buffer), 0);
 
-        memset(game_str, 0, sizeof(game_str));
-        print_board(game->board, game_str);
-        send(opponent_fd, game_str, strlen(game_str), 0);
+        }
+        else{
+            memset(buffer, 0, sizeof(buffer));
 
-        sprintf(buffer, "\nOpponent's move, wait...\n");
-        send(opponent_fd, buffer, strlen(buffer), 0);
+            // Tabla player 1
+            memset(game_str, 0, sizeof(game_str));
+            print_board(game->board, game_str);
+            send(player_fd, game_str, strlen(game_str), 0);
+
+            // Cerere miscare player 1
+            sprintf(buffer, "\nYour move (A1, B2, etc.): ");
+            send(player_fd, buffer, strlen(buffer), 0);
+
+
+            // Tabla player 2
+            send(opponent_fd, game_str, strlen(game_str), 0);
+
+            // Cerere miscare player 2
+            sprintf(buffer, "\nOpponent's move, wait...\n");
+            send(opponent_fd, buffer, strlen(buffer), 0);
+        }
 
         memset(move, 0, sizeof(move));
         if (recv(player_fd, move, sizeof(move), 0) <= 0) {
-            sprintf(buffer, "Your opponent disconnected. Game over.\n");
+            strcat(buffer, "\n Your opponent disconnected. You win.\n");
             send(opponent_fd, buffer, strlen(buffer), 0);
             break;
         }
+        move[2] = 0;
 
-        sscanf(move, "%d %d", &row, &col);
+        // sscanf(move, "%d %d", &row, &col);
+        if (!valid_move(game, move, &row, &col)) {
+            bad_move = 1;
+            continue;
+        }
+
+        bad_move = 0;
 
         pthread_mutex_lock(&game_mutex);
         if (row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE && game->board[row][col] == ' ') {
@@ -184,9 +234,16 @@ int main() {
     int server_fd, new_socket;
     struct sockaddr_in address;
     int addrlen = sizeof(address);
+    int opt = 1; // SO_REUSEADDR
 
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
         perror("socket failed");
+        exit(EXIT_FAILURE);
+    }
+
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))) {
+        perror("setsockopt failed");
+        close(server_fd);
         exit(EXIT_FAILURE);
     }
 
