@@ -3,8 +3,13 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <stdint.h>
+#include <ctype.h>
 
 #define PORT 8080
+
+// am inlocuit variabilele cu valori numerice pentru caracterele ASCII extinse cu variabile de mai jos pentru ca masina virtuala avea
+// probleme cu gestionarea codurilor Unicode
 
 // definim caracterele din tabela extinsa ASCII de care vom avea nevoie pentru a desena patratul
 const char *colt_stanga_sus = "┌";
@@ -20,6 +25,7 @@ const char *separator_central = "┼";
 const char *separator_dreapta = "┤";
 
 // tabla initial goala de 3x3 sub forma de matrice pentru a putea plasa X sau 0
+
 char tabla[3][3] = {{' ', ' ', ' '}, {' ', ' ', ' '}, {' ', ' ', ' '}};
 
 void print_orizontala() // functie care va printa o linie orizontala corespunzatoare unei singure casute din patrat
@@ -66,7 +72,7 @@ void print_celule(int rand) // functie care printeaza laturile verticale ale pat
     printf("%d %s  %c  %s  %c  %s  %c  %s\n", rand + 1, verticala, tabla[rand][0], verticala, tabla[rand][1], verticala, tabla[rand][2], verticala);
 }
 
-void print_tabla()
+void print_tabla() // functie care printeaza tabla in intregime
 {
     print_linie_sus();
     print_celule(0);
@@ -77,23 +83,32 @@ void print_tabla()
     print_linie_jos();
 }
 
-void update_tabla(char *buffer)
+void actualizeaza_tabla(char *buffer)
 {
-    for (int i = 0; i < 3; i++)
+    int i;
+    int j;
+
+    for (i = 0; i < 3; i++)
     {
-        for (int j = 0; j < 3; j++)
+        for (j = 0; j < 3; j++)
         {
             if (buffer[i * 3 + j] == '0')
+            {
                 tabla[i][j] = ' ';
+            }
             else if (buffer[i * 3 + j] == '1')
+            {
                 tabla[i][j] = 'X';
+            }
             else if (buffer[i * 3 + j] == '2')
-                tabla[i][j] = 'O';
+            {
+                tabla[i][j] = '0';
+            }
         }
     }
 }
 
-void play_game(int sock)
+void joaca(int sock)
 {
     char buffer[1024] = {0};
     char move[10];
@@ -101,41 +116,39 @@ void play_game(int sock)
     while (1)
     {
         memset(buffer, 0, sizeof(buffer));
-
         int valread = recv(sock, buffer, 9, 0);
+
         if (valread <= 0)
         {
-            printf("Connection closed by server.\n");
+            printf("Conexiunea a fost intrerupta de catre server.\n");
             break;
         }
 
-        update_tabla(buffer);
+        actualizeaza_tabla(buffer);
         print_tabla();
 
         memset(buffer, 0, sizeof(buffer));
         valread = recv(sock, buffer, sizeof(buffer), 0);
+
         if (valread <= 0)
         {
-            printf("Connection closed by server.\n");
+            printf("Conexiunea a fost intrerupta de catre server.\n");
             break;
         }
         printf("%s", buffer);
 
-        // printf("\nDEBUG\n");
-        // printf("%s", buffer);
-        // printf("%ld - len\n", strlen(buffer));
-        // printf("\nDEBUG\n");
+        // verificam daca jocul s-a incheiat
 
-        // Check if the game has ended
-        if (strstr(buffer, "win") || strstr(buffer, "draw") || strstr(buffer, "lose"))
+        if ((strstr(buffer, "win")) || (strstr(buffer, "draw")) || (strstr(buffer, "lose")))
         {
             break;
         }
 
-        // Only prompt for input if it is this player's turn
+        // printam aceasta linie doar daca este randul acestui jucator
+
         if (strstr(buffer, "Your move"))
         {
-            printf("Enter your move (A1, B2, etc.): ");
+            printf("Introdu mutarea sub forma A1, B2, etc.: ");
             fgets(move, sizeof(move), stdin);
             send(sock, move, strlen(move), 0);
         }
@@ -149,8 +162,8 @@ int main()
 
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
-        printf("Socket creation error\n");
-        return -1;
+        fprintf(stderr, "Eroare la crearea socket-ului.\n");
+        exit(1)
     }
 
     serv_addr.sin_family = AF_INET;
@@ -158,18 +171,18 @@ int main()
 
     if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0)
     {
-        printf("Invalid address/ Address not supported\n");
-        return -1;
+        fprintf(stderr, "Adresa invalida.\n");
+        exit(1)
     }
 
     if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     {
-        printf("Connection Failed\n");
-        return -1;
+        fprintf(stderr, "Conexiunea a esuat.\n");
+        exit(1)
     }
 
-    printf("Connected to the server. Waiting for opponent...\n");
-    play_game(sock);
+    printf("Te-ai conectat la server. Asteptam oponentul...\n");
+    joaca(sock);
 
     close(sock);
     return 0;
