@@ -6,275 +6,325 @@
 #include <arpa/inet.h>
 #include <ctype.h>
 
-#define PORT 8080
-#define MAX_CLIENTS 100
-#define BOARD_SIZE 3
+#define PORT 8080 // portul pe care va asculta conexiuni
+#define MAX_CLIENTI 100 // numarul maxim de clienti
+#define SIZE 3 // dimensiune tabla (3x3)
 
+//structura pentru crearea unui joc
 typedef struct {
-    int player1;
-    int player2;
-    char board[BOARD_SIZE][BOARD_SIZE];
-    int current_turn;
-    int active;
-} Game;
+    int jucator1;
+    int jucator2;
+    char tabla[SIZE][SIZE];
+    int jucator_curent; // jucatorul care realizeaza mutarea
+    int activitate; // starea jocului
+} JOC;
 
-Game games[MAX_CLIENTS / 2];
-int client_queue[MAX_CLIENTS];
-int queue_start = 0, queue_end = 0;
+//vector pentru stocarea jocurilor
+JOC jocuri[MAX_CLIENTI / 2];
+int coada_clienti[MAX_CLIENTI];
+int inceput = 0, sfarsit = 0;
 
-pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t game_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t coada_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t joc_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-void init_board(char board[BOARD_SIZE][BOARD_SIZE]) {
-    for (int i = 0; i < BOARD_SIZE; i++)
-        for (int j = 0; j < BOARD_SIZE; j++)
-            board[i][j] = ' ';
+//functie pentru initializarea tablei
+void init_tabla(char tabla[SIZE][SIZE]) {
+    for (int i = 0; i < SIZE; i++)
+        for (int j = 0; j < SIZE; j++)
+            tabla[i][j] = ' ';
 }
 
-void reset_game(Game *game) {
-    game->player1 = 0;
-    game->player2 = 0;
-    init_board(game->board);
-    game->current_turn = 0;
-    game->active = 0;
+//functie pentu resetarea jocului
+void resetare_joc(JOC *joc) {
+    joc->jucator1 = 0;
+    joc->jucator2 = 0;
+    init_tabla(joc->tabla);
+    joc->jucator_curent = 0;
+    joc->activitate = 0;
 }
 
-void print_board(char board[BOARD_SIZE][BOARD_SIZE], char *buffer) {
+// functie care transforma tabla de joc in string pentru a putea fi trimisa jucatorilor
+void afisare_tabla(char tabla[SIZE][SIZE], char *buffer) {
     int index = 0;
-    for (int i = 0; i < BOARD_SIZE; i++) {
-        for (int j = 0; j < BOARD_SIZE; j++) {
-            if (board[i][j] == ' ') buffer[index] = '0';
-            else if (board[i][j] == 'X') buffer[index] = '1';
-            else if (board[i][j] == 'O') buffer[index] = '2';
+    for (int i = 0; i < SIZE; i++) {
+        for (int j = 0; j < SIZE; j++) {
+            if (tabla[i][j] == ' ') buffer[index] = '0';
+            else if (tabla[i][j] == 'X') buffer[index] = '1';
+            else if (tabla[i][j] == 'O') buffer[index] = '2';
             index++;
         }
     }
     buffer[index] = 0;
 }
 
-int check_winner(char board[BOARD_SIZE][BOARD_SIZE]) {
-    for (int i = 0; i < BOARD_SIZE; i++) {
-        if (board[i][0] != ' ' && board[i][0] == board[i][1] && board[i][1] == board[i][2]) return 1;
-        if (board[0][i] != ' ' && board[0][i] == board[1][i] && board[1][i] == board[2][i]) return 1;
+//verifica daca un jucator a castigat sau e remiza
+int varifica_castigator(char tabla[SIZE][SIZE]) {
+    for (int i = 0; i < SIZE; i++) {
+        //verificare pe linii
+        if (tabla[i][0] != ' ' && tabla[i][0] == tabla[i][1] && tabla[i][1] == tabla[i][2])
+        {
+            return 1;
+        }
+        if (tabla[0][i] != ' ' && tabla[0][i] == tabla[1][i] && tabla[1][i] == tabla[2][i])
+        {
+            return 1;
+        }
     }
-    if (board[0][0] != ' ' && board[0][0] == board[1][1] && board[1][1] == board[2][2]) return 1;
-    if (board[0][2] != ' ' && board[0][2] == board[1][1] && board[1][1] == board[2][0]) return 1;
+    //verficare pe diagonale
+    if (tabla[0][0] != ' ' && tabla[0][0] == tabla[1][1] && tabla[1][1] == tabla[2][2])
+    {
+        return 1;
+    }
+    if (tabla[0][2] != ' ' && tabla[0][2] == tabla[1][1] && tabla[1][1] == tabla[2][0])
+    {
+        return 1;
+    }
     return 0;
 }
 
-int is_draw(char board[BOARD_SIZE][BOARD_SIZE]) {
-    for (int i = 0; i < BOARD_SIZE; i++)
-        for (int j = 0; j < BOARD_SIZE; j++)
-            if (board[i][j] == ' ') return 0;
+//functie in caz de remiza
+int remiza(char tabla[SIZE][SIZE]) {
+    for (int i = 0; i < SIZE; i++)
+        for (int j = 0; j < SIZE; j++)
+            if (tabla[i][j] == ' ')
+            {
+                return 0;
+            }
     return 1;
 }
 
-int valid_move(Game *game ,char *coordinates, int *row, int *col){
-    if (strlen(coordinates) != 2)
+//verifica daca mutarea trimisa este valida
+int mutare_valida(JOC *joc ,char *coordonate, int *rand, int *coloana){
+    if (strlen(coordonate) != 2)
         return 0;
 
-    char letter = toupper(coordinates[0]);
-    char digit = coordinates[1];
+    char litera = toupper(coordonate[0]);
+    char cifra = coordonate[1];
 
-    if (letter < 'A' || letter > 'C' || digit < '1' || digit > '3')
+    if (litera < 'A' || litera > 'C' || cifra < '1' || cifra > '3')
     {
         return 0;
     }
 
-    *row = digit - '1';
-    *col = letter - 'A';
+    *rand = cifra - '1';
+    *coloana = litera - 'A';
 
-    if (game->board[*row][*col] != ' ')
+    if (joc->tabla[*rand][*coloana] != ' ')
         return 0;
 
     return 1;
 }
 
-
-
-void *game_thread(void *arg) {
-    int game_index = *(int *)arg;
+//creare thread pentru gestionarea jocului
+void *joc_thread(void *arg) {
+    int joc_index = *(int *)arg; //obtine indicele jocului din argument
     free(arg);
 
-    Game *game = &games[game_index];
-    char buffer[1024];
-    char game_str[10];
-    char move[3];
-    int row, col;
+    JOC *joc = &jocuri[joc_index];
+    char buffer[1024]; // buffer pentru mesaje
+    char joc_str[10]; // reprezentarea tablei in format text
+    char mutare[3]; // coordonatele mutarii (ex: "A1")
+    int rand, coloana; // coordonatele interpretate (linie si coloana)
 
-    int bad_move = 0;
+    int mutare_invalida = 0;
 
-    init_board(game->board);
+    init_tabla(joc->tabla);
 
     while (1) {
-        int player_fd = (game->current_turn == 1) ? game->player1 : game->player2;
-        int opponent_fd = (game->current_turn == 1) ? game->player2 : game->player1;
+        // selecteaza jucatorii curenti
+        int jucator1_fd = (joc->jucator_curent == 1) ? joc->jucator1 : joc->jucator2;
+        int jucator2_fd = (joc->jucator_curent == 1) ? joc->jucator2 : joc->jucator1;
         
         
-        if (bad_move){
+        if (mutare_invalida){
+            // daca ultima mutare a fost invalida, trimite un mesaj corespunzator
             memset(buffer, 0, sizeof(buffer));
 
-            sprintf(buffer, "\n Illegal move. Try Again\n");
-            strcat(buffer, "\nYour move (A1, B2, etc.): ");
+            sprintf(buffer, "\n Mutare invalida.\n");
+            strcat(buffer, "\n Introduceti mutarea(A1, B2, etc.): ");
 
-            send(player_fd, buffer, strlen(buffer), 0);
+            send(jucator1_fd, buffer, strlen(buffer), 0);
 
         }
         else{
+             // trimite tabla si cere mutare de la jucatorul curent
             memset(buffer, 0, sizeof(buffer));
 
             // Tabla player 1
-            memset(game_str, 0, sizeof(game_str));
-            print_board(game->board, game_str);
-            send(player_fd, game_str, strlen(game_str), 0);
+            memset(joc_str, 0, sizeof(joc_str));
+            afisare_tabla(joc->tabla, joc_str); // converteste tabla in text
+            send(jucator1_fd, joc_str, strlen(joc_str), 0); // trimite tabla jucatorului 1
 
-            // Cerere miscare player 1
-            sprintf(buffer, "\nYour move (A1, B2, etc.): ");
-            send(player_fd, buffer, strlen(buffer), 0);
+            // cerere miscare jucatorului 1
+            sprintf(buffer, "\n Introduceti mutarea(A1, B2, etc.): ");
+            send(jucator1_fd, buffer, strlen(buffer), 0);
 
 
-            // Tabla player 2
-            send(opponent_fd, game_str, strlen(game_str), 0);
+             // trimite tabla jucatorului 2 si ii comunica ca asteapta mutarea oponentului
+            send(jucator2_fd, joc_str, strlen(joc_str), 0);
 
-            // Cerere miscare player 2
-            sprintf(buffer, "\nOpponent's move, wait...\n");
-            send(opponent_fd, buffer, strlen(buffer), 0);
+            // cerere miscare jucatorului 2
+            sprintf(buffer, "\n Se asteapta mutarea oponentului...\n");
+            send(jucator2_fd, buffer, strlen(buffer), 0);
         }
 
-        memset(move, 0, sizeof(move));
-        if (recv(player_fd, move, sizeof(move), 0) <= 0) {
-            strcat(buffer, "\n Your opponent disconnected. You win.\n");
-            send(opponent_fd, buffer, strlen(buffer), 0);
+        // asteapta mutarea jucatorului curent
+        memset(mutare, 0, sizeof(mutare));
+        if (recv(jucator1_fd, mutare, sizeof(mutare), 0) <= 0) {
+            // daca jucatorul s-a deconectat, anunta oponentul si opreste jocul
+            strcat(buffer, "\n Oponentul s-a deconectat. Ati castigat!\n");
+            send(jucator2_fd, buffer, strlen(buffer), 0);
             break;
         }
-        move[2] = 0;
+        mutare[2] = 0; // asigura terminatorul de sir
 
-        // sscanf(move, "%d %d", &row, &col);
-        if (!valid_move(game, move, &row, &col)) {
-            bad_move = 1;
+        // verifica daca mutarea este valida
+        if (!mutare_valida(joc, mutare, &rand, &coloana)) {
+            mutare_inlavida= 1; // seteaza flag-ul pentru mutare invalida
             continue;
         }
 
-        bad_move = 0;
+        mutare_invalida = 0; // reseteaza flag-ul pentru mutare invalida
 
-        pthread_mutex_lock(&game_mutex);
-        if (row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE && game->board[row][col] == ' ') {
-            game->board[row][col] = (game->current_turn == 1) ? 'X' : 'O';
+        // blocheaza mutex-ul pentru a proteja modificarea tablei
+        pthread_mutex_lock(&joc_mutex);
+        if (rand >= 0 && rand < SIZE && coloana >= 0 && coloana < SIZE && joc->tabla[rand][coloana] == ' ') {
+            // efectueaza mutarea
+            joc->tabla[rand][coloana] = (joc->jucator_curent == 1) ? 'X' : 'O';
+            // verifica daca mutarea a dus la castig
+            if (verifica_castigator(joc->board)) {
+                afisare_tabla(joc->tabla, joc_str);
+                send(jucator1_fd, joc_str, strlen(joc_str), 0);
+                sprintf(buffer, "WINNER WINNER CHICKEN DINNER\n");
+                send(jucator1_fd, buffer, strlen(buffer), 0);
 
-            if (check_winner(game->board)) {
-                print_board(game->board, game_str);
-                send(player_fd, game_str, strlen(game_str), 0);
-                sprintf(buffer, "You win!\n");
-                send(player_fd, buffer, strlen(buffer), 0);
-
-                print_board(game->board, game_str);
-                send(opponent_fd, game_str, strlen(game_str), 0);
-                sprintf(buffer, "You lose!\n");
-                send(opponent_fd, buffer, strlen(buffer), 0);
+                afisare_tabla(joc->tabla, joc_str);
+                send(jucator2_fd, joc_str, strlen(joc_str), 0);
+                sprintf(buffer, "Ati pierdut!:(\n");
+                send(jucator2_fd, buffer, strlen(buffer), 0);
                 pthread_mutex_unlock(&game_mutex);
                 break;
-            } else if (is_draw(game->board)) {
-                print_board(game->board, game_str);
-                send(player_fd, game_str, strlen(game_str), 0);
-                send(opponent_fd, game_str, strlen(game_str), 0);
+            } else if (remiza(joc->tabla)) {
+                 // verifica daca jocul este remiza
+                afisare_tabla(joc->tabla, joc_str);
+                send(jucator1_fd, joc_str, strlen(joc_str), 0);
+                send(jucator2_fd, joc_str, strlen(joc_str), 0);
 
-                sprintf(buffer, "It's a draw!\n");
-                send(player_fd, buffer, strlen(buffer), 0);
-                send(opponent_fd, buffer, strlen(buffer), 0);
-                pthread_mutex_unlock(&game_mutex);
+                sprintf(buffer, "Remiza!\n");
+                send(jucator1_fd, buffer, strlen(buffer), 0);
+                send(jucator2_fd, buffer, strlen(buffer), 0);
+                pthread_mutex_unlock(&joc_mutex);
                 break;
             }
-
-            game->current_turn = (game->current_turn == 1) ? 2 : 1;
+            // schimba jucatorul curent
+            joc->jucator_curent = (joc->jucator_curent == 1) ? 2 : 1;
         }
-        pthread_mutex_unlock(&game_mutex);
+        pthread_mutex_unlock(&joc_mutex);
     }
-
-   
-
-    close(game->player1);
-    close(game->player2);
-    reset_game(game);
-    return NULL;
+    // inchide conexiunile si reseteaza jocul
+    close(joc->jucator1);
+    close(joc->jucator2);
+    resetare_joc(joc);
+    return NULL; // reseteaza starea jocului
 }
 
+//creare thread pentru matchmaking
 void *matchmaking_thread(void *arg) {
     while (1) {
-        pthread_mutex_lock(&queue_mutex);
-        if (queue_end - queue_start >= 2) {
-            int player1 = client_queue[queue_start++];
-            int player2 = client_queue[queue_start++];
+        // blocheaza mutex-ul pentru a proteja accesul la coada de clienti
+        pthread_mutex_lock(&coada_mutex);
+         // verifica daca exista cel putin doi clienti in coada
+        if (sfarsit - inceput >= 2) {
+            // scoate doi clienti din coada
+            int jucator1 = coada_clienti[inceput++];
+            int jucator2 = coada_clienti[inceput++];
 
-            int game_index = -1;
-            for (int i = 0; i < MAX_CLIENTS / 2; i++) {
-                if (!games[i].active) {
-                    game_index = i;
+            // gaseste un joc inactiv in lista de jocuri
+            int joc_index = -1;
+            for (int i = 0; i < MAX_CLIENTI / 2; i++) {
+                if (!jocuri[i].activitate) { // verifica daca jocul este inactiv
+                    joc_index = i;
                     break;
                 }
             }
 
-            if (game_index != -1) {
-                games[game_index].player1 = player1;
-                games[game_index].player2 = player2;
-                games[game_index].current_turn = 1;
-                games[game_index].active = 1;
+            // daca s-a gasit un joc inactiv
+            if (joc_index != -1) {
+                // initializeaza jocul cu cei doi jucatori
+                jocuri[joc_index].jucator1 = jucator1;
+                jocuri[joc_index].jucator2 = jucator2;
+                jocuri[joc_index].juator_curent = 1; // primul jucator incepe
+                jocuri[joc_index].activitate = 1; // marcheaza jocul ca activ
 
+                // creeaza un thread pentru jocul curent
                 int *arg = malloc(sizeof(int));
-                *arg = game_index;
-                pthread_t game_tid;
-                pthread_create(&game_tid, NULL, game_thread, arg);
+                *arg = joc_index;
+                pthread_t joc_tid;
+                pthread_create(&joc_tid, NULL, joc_thread, arg);
             }
         }
-        pthread_mutex_unlock(&queue_mutex);
+        
+        // deblocheaza mutex-ul dupa procesarea cozii
+        pthread_mutex_unlock(&coada_mutex);
+
+        // asteapta 100ms inainte de a relua bucla
         usleep(100000);
     }
 }
 
 int main() {
-    int server_fd, new_socket;
-    struct sockaddr_in address;
-    int addrlen = sizeof(address);
-    int opt = 1; // SO_REUSEADDR
+    int server_fd, new_socket; //descriptorul de fisier pentru server si pentru noile conexiuni ale clientilor
+    struct sockaddr_in address; // structura pentru adresa serverului
+    int addrlen = sizeof(address); // dimensiunea structurii `address`
+    int opt = 1; //optiunea pentru reutilizarea adresei (SO_REUSEADDR)
 
+    // crearea socketului pentru server
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-        perror("socket failed");
+        perror("A aparut o eroare la socket.");
         exit(EXIT_FAILURE);
     }
 
+    // configurarea socketului pentru a permite reutilizarea adresei
     if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))) {
-        perror("setsockopt failed");
+        perror("A aparut o eroare la setsockopt.");
         close(server_fd);
         exit(EXIT_FAILURE);
     }
 
+    // configurarea adresei serverului
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(PORT);
+    address.sin_addr.s_addr = INADDR_ANY; // accepta conexiuni pe orice adresa locala
+    address.sin_port = htons(PORT); // portul pe care serverul asculta (convertit in retea)
 
+    // asocierea socketului cu adresa si portul specificat
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        perror("bind failed");
+        perror("A aparut o eroare la bind.");
         exit(EXIT_FAILURE);
     }
 
+    // setează socketul in modul de ascultare, permitand pana la 3 conexiuni simultane in coada de asteptare
     if (listen(server_fd, 3) < 0) {
-        perror("listen failed");
+        perror("A aparut o eroare la listen");
         exit(EXIT_FAILURE);
     }
 
+    // creeaza un thread separat pentru matchmaking (asocierea jucatorilor in perechi)
     pthread_t matchmaking_tid;
     pthread_create(&matchmaking_tid, NULL, matchmaking_thread, NULL);
 
-    printf("Server is running on port %d\n", PORT);
+    printf("Se asteapta clientii pe portul %d\n", PORT);
 
     while (1) {
+        // accepta o conexiune noua
         if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0) {
-            perror("accept failed");
+            perror("Nu s-a realizat conexiunea.");
             exit(EXIT_FAILURE);
         }
 
-        pthread_mutex_lock(&queue_mutex);
-        client_queue[queue_end++] = new_socket;
-        pthread_mutex_unlock(&queue_mutex);
+         // adauga descriptorul noii conexiuni in coada de clienti
+        pthread_mutex_lock(&coada_mutex);
+        coada_clienti[sfarsit++] = new_socket;
+        pthread_mutex_unlock(&coada_mutex);
     }
 
     return 0;
