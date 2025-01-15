@@ -139,16 +139,16 @@ void joaca(int sock)
 
         // verificam daca jocul s-a incheiat
 
-        if ((strstr(buffer, "win")) || (strstr(buffer, "draw")) || (strstr(buffer, "lose")))
+        if ((strstr(buffer, "WINNER")) || (strstr(buffer, "pierdut")) || (strstr(buffer, "Remiza")))
         {
             break;
         }
 
         // printam aceasta linie doar daca este randul acestui jucator
 
-        if (strstr(buffer, "Your move"))
+        if (strstr(buffer, "Introduceti mutarea"))
         {
-            printf("Introdu mutarea sub forma A1, B2, etc.: ");
+            // printf("Introdu mutarea sub forma A1, B2, etc.: ");
             fgets(move, sizeof(move), stdin);
             send(sock, move, strlen(move), 0);
         }
@@ -163,7 +163,7 @@ int main()
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
         fprintf(stderr, "Eroare la crearea socket-ului.\n");
-        exit(1)
+        exit(1);
     }
 
     serv_addr.sin_family = AF_INET;
@@ -172,13 +172,13 @@ int main()
     if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0)
     {
         fprintf(stderr, "Adresa invalida.\n");
-        exit(1)
+        exit(1);
     }
 
     if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     {
         fprintf(stderr, "Conexiunea a esuat.\n");
-        exit(1)
+        exit(1);
     }
 
     printf("Te-ai conectat la server. Asteptam oponentul...\n");
