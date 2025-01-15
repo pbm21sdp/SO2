@@ -58,7 +58,7 @@ void afisare_tabla(char tabla[SIZE][SIZE], char *buffer) {
 }
 
 //verifica daca un jucator a castigat sau e remiza
-int varifica_castigator(char tabla[SIZE][SIZE]) {
+int verifica_castigator(char tabla[SIZE][SIZE]) {
     for (int i = 0; i < SIZE; i++) {
         //verificare pe linii
         if (tabla[i][0] != ' ' && tabla[i][0] == tabla[i][1] && tabla[i][1] == tabla[i][2])
@@ -180,7 +180,7 @@ void *joc_thread(void *arg) {
 
         // verifica daca mutarea este valida
         if (!mutare_valida(joc, mutare, &rand, &coloana)) {
-            mutare_inlavida= 1; // seteaza flag-ul pentru mutare invalida
+            mutare_invalida= 1; // seteaza flag-ul pentru mutare invalida
             continue;
         }
 
@@ -192,7 +192,7 @@ void *joc_thread(void *arg) {
             // efectueaza mutarea
             joc->tabla[rand][coloana] = (joc->jucator_curent == 1) ? 'X' : 'O';
             // verifica daca mutarea a dus la castig
-            if (verifica_castigator(joc->board)) {
+            if (verifica_castigator(joc->tabla)) {
                 afisare_tabla(joc->tabla, joc_str);
                 send(jucator1_fd, joc_str, strlen(joc_str), 0);
                 sprintf(buffer, "WINNER WINNER CHICKEN DINNER\n");
@@ -202,7 +202,7 @@ void *joc_thread(void *arg) {
                 send(jucator2_fd, joc_str, strlen(joc_str), 0);
                 sprintf(buffer, "Ati pierdut!:(\n");
                 send(jucator2_fd, buffer, strlen(buffer), 0);
-                pthread_mutex_unlock(&game_mutex);
+                pthread_mutex_unlock(&joc_mutex);
                 break;
             } else if (remiza(joc->tabla)) {
                  // verifica daca jocul este remiza
@@ -253,7 +253,7 @@ void *matchmaking_thread(void *arg) {
                 // initializeaza jocul cu cei doi jucatori
                 jocuri[joc_index].jucator1 = jucator1;
                 jocuri[joc_index].jucator2 = jucator2;
-                jocuri[joc_index].juator_curent = 1; // primul jucator incepe
+                jocuri[joc_index].jucator_curent = 1; // primul jucator incepe
                 jocuri[joc_index].activitate = 1; // marcheaza jocul ca activ
 
                 // creeaza un thread pentru jocul curent
