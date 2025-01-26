@@ -28,6 +28,8 @@ const char *separator_dreapta = "┤";
 
 char tabla[3][3] = {{' ', ' ', ' '}, {' ', ' ', ' '}, {' ', ' ', ' '}};
 
+// functii pentru desenarea tablei
+
 void print_orizontala() // functie care va printa o linie orizontala corespunzatoare unei singure casute din patrat
 {
     printf("%s%s%s%s%s", orizontala, orizontala, orizontala, orizontala, orizontala);
@@ -83,6 +85,7 @@ void print_tabla() // functie care printeaza tabla in intregime
     print_linie_jos();
 }
 
+// functie care actualizeaza tabla locala in functie de stringul (9 caractere) trimis de server
 void actualizeaza_tabla(char *buffer)
 {
     int i;
@@ -108,48 +111,73 @@ void actualizeaza_tabla(char *buffer)
     }
 }
 
+// functie principala de joc (bucla in care primim tabla, mesaje etc.)
 void joaca(int sock)
 {
     char buffer[1024] = {0};
     char move[10];
 
+    // primim un mesaj de la server despre inceputul jocului
+    memset(buffer, 0, sizeof(buffer));
+    int valread = recv(sock, buffer, sizeof(buffer), 0);
+
+    if (valread <= 0)
+    {
+        printf("Conexiunea a fost intrerupta de server.\n");
+        exit(1);
+    }
+    // printam mesajul primit de la server
+    printf("%s", buffer);
+
     while (1)
     {
+        // primim tabla (9 caractere) de la server
         memset(buffer, 0, sizeof(buffer));
-        int valread = recv(sock, buffer, 9, 0);
+        valread = recv(sock, buffer, 9, 0);
 
         if (valread <= 0)
         {
-            printf("Conexiunea a fost intrerupta de catre server.\n");
+            printf("Conexiunea a fost intrerupta de server.\n");
             break;
         }
 
+        // actualizam tabla si o afisam
         actualizeaza_tabla(buffer);
         print_tabla();
 
+        // primim un mesaj de la server despre mutari sau starea jocului
         memset(buffer, 0, sizeof(buffer));
         valread = recv(sock, buffer, sizeof(buffer), 0);
 
         if (valread <= 0)
         {
-            printf("Conexiunea a fost intrerupta de catre server.\n");
+            printf("Conexiunea a fost intrerupta de server.\n");
             break;
         }
+        // printam mesajul primit de la server
         printf("%s", buffer);
 
-        // verificam daca jocul s-a incheiat
-
-        if ((strstr(buffer, "WINNER")) || (strstr(buffer, "pierdut")) || (strstr(buffer, "Remiza")))
+        // verificam daca jocul s-a terminat (prin cuvinte cheie)
+        if (strstr(buffer, "castigat") ||
+            strstr(buffer, "pierdut") ||
+            strstr(buffer, "Remiza") ||
+            strstr(buffer, "deconectat") ||
+            strstr(buffer, "forfeit"))
         {
             break;
         }
 
         // printam aceasta linie doar daca este randul acestui jucator
-
-        if (strstr(buffer, "Introduceti mutarea"))
+        if (strstr(buffer, "Introduceti mutarea") || strstr(buffer, "randul tau"))
         {
-            // printf("Introdu mutarea sub forma A1, B2, etc.: ");
+            // citim mutarea de la tastatura
+            memset(move, 0, sizeof(move));
             fgets(move, sizeof(move), stdin);
+
+            // scoatem \n de la final (daca exista)
+            move[strcspn(move, "\n")] = 0;
+
+            // trimitem la server
             send(sock, move, strlen(move), 0);
         }
     }
@@ -160,9 +188,10 @@ int main()
     int sock = 0;
     struct sockaddr_in serv_addr;
 
+    // cream socketul
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
-        fprintf(stderr, "Eroare la crearea socket-ului.\n");
+        fprintf(stderr, "Eroare la crearea socketului.\n");
         exit(1);
     }
 
@@ -175,15 +204,30 @@ int main()
         exit(1);
     }
 
+    // conectarea clientului la server
     if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     {
         fprintf(stderr, "Conexiunea a esuat.\n");
         exit(1);
     }
 
-    printf("Te-ai conectat la server. Asteptam oponentul...\n");
+    // trimitem numele jucatorului imediat dupa ce conectare
+    char name[50];
+    printf("Introdu username-ul: ");
+    fgets(name, sizeof(name), stdin);
+
+    // scoatem \n de la final (daca exista)
+    name[strcspn(name, "\n")] = 0;
+
+    // trimitem numele catre server
+    send(sock, name, strlen(name), 0);
+
+    printf("Te-ai conectat la server ca \"%s\". Asteptam un oponent...\n", name);
+
+    // jocul efectiv
     joaca(sock);
 
+    // inchidem conexiunea
     close(sock);
     return 0;
 }
